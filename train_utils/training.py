@@ -5,6 +5,8 @@ from torch.utils.data import DataLoader
 
 from sklearn.model_selection import KFold
 
+from gaussian_utils.gaussian import GaussianProcessOptimizer
+
 
 def train(dataloader, model, loss_fn, optimizer, device):
     if hasattr(dataloader.sampler, "indices"):
@@ -95,3 +97,27 @@ def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, l
     avg_loss = sum(test_losses)/len(test_losses)
 
     return avg_accuracy, avg_loss
+
+
+def optimize_params(training_data, test_data, model, epochs, batch_size, n_splits, device):
+    lb = 0.001  # lower bound for param to be optimized
+    ub = 0.9    # upper bound for param to be optimized
+    max_evals = 10  # num of params to try
+    gpo = GaussianProcessOptimizer(lb, ub)
+
+    for i in range(max_evals):
+        print("---Param no----{}".format(i+1))
+        # Get next set of parameters to try
+        if i < 1:
+            learning_rate = 0.01   # start with a lr thats often good
+        else:
+            gpo.gp = gpo.fit()
+            learning_rate = gpo.next_point()
+        print("Learning rate:", learning_rate)
+        avg_accuracy, avg_loss = kfold_train(
+            training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device)
+        # Store parameters and scores
+        gpo.add_point(learning_rate, avg_loss)
+
+    optimal_lr = gpo.best_point()
+    print("Optimal learning rate", optimal_lr)

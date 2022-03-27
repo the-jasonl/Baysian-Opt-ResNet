@@ -3,7 +3,7 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 from models.smallresnet import ResNet
 
-from train_utils.training import kfold_train
+from train_utils.training import optimize_params
 
 
 def main():
@@ -26,13 +26,11 @@ def main():
 
     # Load ResNet to optimize
     model = ResNet().to(device)
-
+    # We are only optimizing learning rate, so we fix other hyperparameters
     epochs = 5
     batch_size = 64
     n_splits = 3
-    learning_rate = 0.01
-    kfold_train(training_data, test_data, model, epochs,
-                batch_size, n_splits, learning_rate, device)
+    optimize_params(training_data, test_data, model, epochs, batch_size, n_splits, device)
 
     print("Done!")
 
