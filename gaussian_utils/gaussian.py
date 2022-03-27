@@ -77,5 +77,4 @@ class GaussianProcessOptimizer():
         return min_x.item()
 
     def fit(self):
-        print("Fitting")
         return self.gp.fit(np.array(self.X_samples).reshape(-1,1), np.array(self.Y_samples).reshape(-1,1))

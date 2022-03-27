@@ -4,8 +4,10 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from sklearn.model_selection import KFold
+import matplotlib.pyplot as plt
 
 from gaussian_utils.gaussian import GaussianProcessOptimizer
+from plotting_utils.plotting import plot_approximation, plot_acquisition
 
 
 def train(dataloader, model, loss_fn, optimizer, device):
@@ -60,8 +62,7 @@ def test(dataloader, model, loss_fn, device):
 
 def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device):
     loss_fn = nn.CrossEntropyLoss()
-    # set random state for reproducability
-    # set seed for reproducability
+    # set random state for reproducibility
     torch.manual_seed(10)
     kfold = KFold(n_splits=n_splits, shuffle=True, random_state=10)
     # Create data loaders for test data
@@ -99,11 +100,17 @@ def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, l
     return avg_accuracy, avg_loss
 
 
-def optimize_params(training_data, test_data, model, epochs, batch_size, n_splits, device):
+def optimize_params(
+        training_data: torch.Tensor, test_data: torch.Tensor,
+        model: torch.nn.Module, epochs: int, batch_size: int,
+        n_splits: int, device: str):
     lb = 0.001  # lower bound for param to be optimized
     ub = 0.9    # upper bound for param to be optimized
-    max_evals = 10  # num of params to try
+    max_evals = 6  # num of params to try
     gpo = GaussianProcessOptimizer(lb, ub)
+
+    plt.figure(figsize=(12, max_evals * 3))
+    plt.subplots_adjust(hspace=0.4)
 
     for i in range(max_evals):
         print("---Param no----{}".format(i+1))
@@ -113,6 +120,13 @@ def optimize_params(training_data, test_data, model, epochs, batch_size, n_split
         else:
             gpo.gp = gpo.fit()
             learning_rate = gpo.next_point()
+            # plotting from second iteration onwards
+            plt.subplot(max_evals, 2, 2 * (i-1) + 1)
+            plot_approximation(gpo.gp, gpo.X, gpo.X_samples, gpo.Y_samples)
+            plt.title(f'Iteration {i+1}')
+            plt.subplot(max_evals, 2, 2 * (i-1) + 2)
+            plot_acquisition(gpo.X, gpo.expected_improvement(
+                gpo.X, gpo.X_samples, gpo.gp), X_next=learning_rate, show_legend=i == 0)
         print("Learning rate:", learning_rate)
         avg_accuracy, avg_loss = kfold_train(
             training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device)
@@ -121,3 +135,4 @@ def optimize_params(training_data, test_data, model, epochs, batch_size, n_split
 
     optimal_lr = gpo.best_point()
     print("Optimal learning rate", optimal_lr)
+    plt.savefig('optimization_plots.png')
