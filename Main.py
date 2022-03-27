@@ -3,7 +3,7 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 from models.smallresnet import ResNet
 
-from train_utils.training import run_training
+from train_utils.training import kfold_train
 
 
 def main():
@@ -29,9 +29,10 @@ def main():
 
     epochs = 5
     batch_size = 64
+    n_splits = 3
     learning_rate = 0.01
-    run_training(training_data, test_data, model, epochs,
-                 batch_size, learning_rate, device)
+    kfold_train(training_data, test_data, model, epochs,
+                batch_size, n_splits, learning_rate, device)
 
     print("Done!")
 

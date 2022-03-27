@@ -1,6 +1,9 @@
+import copy
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
+
+from sklearn.model_selection import KFold
 
 
 def train(dataloader, model, loss_fn, optimizer, device):
@@ -53,20 +56,42 @@ def test(dataloader, model, loss_fn, device):
     return correct, test_loss
 
 
-def run_training(training_data, test_data, model, epochs, batch_size, learning_rate, device):
+def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device):
+    loss_fn = nn.CrossEntropyLoss()
+    # set random state for reproducability
     # set seed for reproducability
     torch.manual_seed(10)
-    loss_fn = nn.CrossEntropyLoss()
+    kfold = KFold(n_splits=n_splits, shuffle=True, random_state=10)
+    # Create data loaders for test data
     test_dataloader = DataLoader(test_data, batch_size=batch_size)
+    accuracy_scores = []
+    test_losses = []
 
-    # 1 fold train
-    train_dataloader = DataLoader(
-        training_data, batch_size=batch_size)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
-    for t in range(epochs):
-        print(f"Epoch {t+1}\n-------------------------------")
-        train(train_dataloader, model, loss_fn, optimizer, device)
-        test(test_dataloader, model, loss_fn, device)
-    avg_accuracy, avg_loss = test(test_dataloader, model, loss_fn, device)
+    for fold, (train_idx, test_idx) in enumerate(kfold.split(training_data)):
+        print('---fold no---{}---'.format(fold+1))
+        # use default model state and new optimizer for every fold
+        model_copy = copy.deepcopy(model)
+        optimizer = torch.optim.SGD(model_copy.parameters(), lr=learning_rate)
+        # Load subsamplers
+        train_subsampler = torch.utils.data.SubsetRandomSampler(train_idx)
+        cv_subsampler = torch.utils.data.SubsetRandomSampler(test_idx)
+        # Create data loaders for training and cross-val data
+        train_dataloader = DataLoader(
+            training_data, batch_size=batch_size, sampler=train_subsampler)
+        cv_dataloader = DataLoader(
+            training_data, batch_size=batch_size, sampler=cv_subsampler)
+        # Train fold
+        for t in range(epochs):
+            print(f"---Epoch {t+1}---\n")
+            train(train_dataloader, model_copy, loss_fn, optimizer, device)
+            test(cv_dataloader, model_copy, loss_fn, device)
+        # Fold test performance
+        accuracy, test_loss = test(
+            test_dataloader, model_copy, loss_fn, device)
+        accuracy_scores.append(accuracy)
+        test_losses.append(test_loss)
+    # Average metrics across folds
+    avg_accuracy = sum(accuracy_scores)/len(accuracy_scores)
+    avg_loss = sum(test_losses)/len(test_losses)
 
     return avg_accuracy, avg_loss
