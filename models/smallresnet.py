@@ -14,12 +14,15 @@ class ResBlock(nn.Module):
         self.downsample = None
         # the feature map size is halved, the number of filters is doubled
         if out_channels == 2*in_channels:
-            self.downsample = nn.Conv2d(
-                in_channels,
-                out_channels,
-                kernel_size=3,
-                stride=2,
-                bias=False
+            self.downsample = self.downsample = nn.Sequential(
+                nn.Conv2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=3,
+                    stride=2,
+                    bias=False
+                ),
+                nn.BatchNorm2d(out_channels),
             )
             self.conv1 = nn.Conv2d(
                 in_channels, out_channels, kernel_size=3, stride=2, padding=0)
@@ -73,7 +76,6 @@ class ResNet(nn.Module):
         # output dims same
         self.resblock2 = ResBlock(8, 16)
         # output dims halved
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(6*6*16, mnist_classes)
 
     def forward(self, x):
@@ -83,7 +85,6 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
         x = self.resblock1(x)
         x = self.resblock2(x)
-        # x = self.avgpool(x)
         x = x.reshape(x.shape[0], -1)
         x = self.fc(x)
 
