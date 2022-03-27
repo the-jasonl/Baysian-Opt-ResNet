@@ -3,10 +3,13 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 from models.smallresnet import ResNet
 
-from train_utils.training import optimize_params
+from train_utils.training import optimize_lr
 
 
 def main():
+    """
+    Baysian Optimization process for the learning rate of a ResNet on Fashion-MNIST
+    """
     # Download training data from open datasets.
     training_data = datasets.FashionMNIST(
         root="data",
@@ -27,10 +30,11 @@ def main():
     # Load ResNet to optimize
     model = ResNet().to(device)
     # We are only optimizing learning rate, so we fix other hyperparameters
-    epochs = 5
+    epochs = 2
     batch_size = 64
     n_splits = 3
-    optimize_params(training_data, test_data, model, epochs, batch_size, n_splits, device)
+    optimize_lr(training_data, test_data, model,
+                epochs, batch_size, n_splits, device)
 
     print("Done!")
 

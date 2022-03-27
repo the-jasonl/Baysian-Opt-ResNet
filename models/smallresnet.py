@@ -2,14 +2,13 @@ from torch import nn
 
 
 class ResBlock(nn.Module):
-    """
-    ResBlocks with skip connection
+    def __init__(self, in_channels: int, out_channels: int):
+        """ResBlocks with skip connection
 
-    Args:
-        nn (Module): Torch Neural Network Base class
-    """
-
-    def __init__(self, in_channels, out_channels):
+        Args:
+            in_channels (int): number of channels of the input
+            out_channels (int): number of channels for the output
+        """
         super(ResBlock, self).__init__()
         self.downsample = None
         # the feature map size is halved, the number of filters is doubled
@@ -45,21 +44,15 @@ class ResBlock(nn.Module):
         # adjust identity dimensions map size is halved
         if self.downsample is not None:
             x_identity = self.downsample(x_identity)
-            x_identity = self.bn1(x_identity)
         x += x_identity  # skip connection
         x = self.relu(x)
         return x
 
 
 class ResNet(nn.Module):
-    """
-    Small ResNet with two ResBlocks and a fully connected layer
-
-    Args:
-        nn (Module): Torch Neural Network Base class
-    """
-
     def __init__(self):
+        """Small ResNet with two ResBlocks and a fully connected layer
+        """
         super(ResNet, self).__init__()
         mnist_channels = 1
         mnist_classes = 10

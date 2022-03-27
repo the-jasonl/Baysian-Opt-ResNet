@@ -1,8 +1,9 @@
 import copy
+from typing import Tuple
+from datetime import datetime
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
-
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 
@@ -10,7 +11,17 @@ from gaussian_utils.gaussian import GaussianProcessOptimizer
 from plotting_utils.plotting import plot_approximation, plot_acquisition
 
 
-def train(dataloader, model, loss_fn, optimizer, device):
+def train(dataloader: DataLoader, model: torch.nn.Module, loss_fn: nn.CrossEntropyLoss,
+          optimizer: torch.optim.SGD, device: str) -> None:
+    """Train pipeline for model
+
+    Args:
+        dataloader (DataLoader): Torch Dataloader for training data
+        model (torch.nn.Module): model (torch.nn.Module): Model to be trained
+        loss_fn (nn.CrossEntropyLoss): loss function
+        optimizer (torch.optim.SGD): optimizer
+        device (str): "cpu" or "cuda"
+    """
     if hasattr(dataloader.sampler, "indices"):
         size = len(dataloader.sampler.indices)
     else:
@@ -39,8 +50,21 @@ def train(dataloader, model, loss_fn, optimizer, device):
             print(f"loss: {loss:>7f}  [{size:>5d}/{size:>5d}]")
 
 
-def test(dataloader, model, loss_fn, device):
+def test(dataloader: DataLoader, model: torch.nn.Module,
+         loss_fn: nn.CrossEntropyLoss, device: str) -> Tuple[float, float]:
+    """Return performance of model on a test set
+
+    Args:
+        dataloader (DataLoader): Torch Dataloader for test data
+        model (torch.nn.Module): Model to be evaluated
+        loss_fn (nn.CrossEntropyLoss): loss function
+        device (str): "cpu" or "cuda"
+
+    Returns:
+        Tuple[float, float]: return test accuracy and loss
+    """
     if hasattr(dataloader.sampler, "indices"):
+        # Use subsample indices if subsampler is used
         size = len(dataloader.sampler.indices)
     else:
         size = len(dataloader.dataset)
@@ -60,7 +84,24 @@ def test(dataloader, model, loss_fn, device):
     return correct, test_loss
 
 
-def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device):
+def kfold_train(training_data: torch.Tensor, test_data: torch.Tensor,
+                model: torch.nn.Module, epochs: int, batch_size: int, n_splits: int,
+                learning_rate: float, device: str) -> Tuple[float, float]:
+    """Trains n_splits models on n_splits folds and returns the average accuracy and loss
+
+    Args:
+        training_data (torch.Tensor): Data to be trained on
+        test_data (torch.Tensor): Data for testing
+        model (torch.nn.Module): Model to be trained and tested
+        epochs (int): Epochs to train model for
+        batch_size (int): Training batch size
+        n_splits (int): Number of folds for training
+        learning_rate (float): Model learning rate
+        device (str): "cpu" or "cuda"
+
+    Returns:
+        Tuple[float, float]: average accuracy and loss across folds
+    """
     loss_fn = nn.CrossEntropyLoss()
     # set random state for reproducibility
     torch.manual_seed(10)
@@ -100,14 +141,27 @@ def kfold_train(training_data, test_data, model, epochs, batch_size, n_splits, l
     return avg_accuracy, avg_loss
 
 
-def optimize_params(
+def optimize_lr(
         training_data: torch.Tensor, test_data: torch.Tensor,
         model: torch.nn.Module, epochs: int, batch_size: int,
-        n_splits: int, device: str):
+        n_splits: int, device: str) -> None:
+    """Optimizes the learning rate of the given model with provided data and hyperparameters. 
+    Creates plots during optimizations, saving them to file optimization_plots.png
+
+    Args:
+        training_data (torch.Tensor): Data to be trained on
+        test_data (torch.Tensor): Data for testing
+        model (torch.nn.Module): Model to be trained and tested
+        epochs (int): Epochs to train model for
+        batch_size (int): Training batch size
+        n_splits (int): Number of folds for training
+        device (str): "cpu" or "cuda"
+    """
     lb = 0.001  # lower bound for param to be optimized
     ub = 0.9    # upper bound for param to be optimized
     max_evals = 6  # num of params to try
-    gpo = GaussianProcessOptimizer(lb, ub)
+    n_restarts = 10  # restarts of gpo
+    gpo = GaussianProcessOptimizer(lb, ub, n_restarts)
 
     plt.figure(figsize=(12, max_evals * 3))
     plt.subplots_adjust(hspace=0.4)
@@ -122,11 +176,12 @@ def optimize_params(
             learning_rate = gpo.next_point()
             # plotting from second iteration onwards
             plt.subplot(max_evals, 2, 2 * (i-1) + 1)
-            plot_approximation(gpo.gp, gpo.X, gpo.X_samples, gpo.Y_samples)
+            plot_approximation(gpo.gp, gpo.X, gpo.X_samples, gpo.Y_samples,
+                               X_next=learning_rate, show_legend=(i == 1))
             plt.title(f'Iteration {i+1}')
             plt.subplot(max_evals, 2, 2 * (i-1) + 2)
             plot_acquisition(gpo.X, gpo.expected_improvement(
-                gpo.X, gpo.X_samples, gpo.gp), X_next=learning_rate, show_legend=i == 0)
+                gpo.X, gpo.X_samples, gpo.gp), X_next=learning_rate, show_legend=(i == 1))
         print("Learning rate:", learning_rate)
         avg_accuracy, avg_loss = kfold_train(
             training_data, test_data, model, epochs, batch_size, n_splits, learning_rate, device)
@@ -135,4 +190,6 @@ def optimize_params(
 
     optimal_lr = gpo.best_point()
     print("Optimal learning rate", optimal_lr)
-    plt.savefig('optimization_plots.png')
+    # Save plot to file
+    timestamp = datetime.now().strftime("%y%m%d%H%M%S")
+    plt.savefig(timestamp + '_optimization_plots.png')

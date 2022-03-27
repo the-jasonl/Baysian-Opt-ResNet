@@ -1,34 +1,45 @@
-import numpy as np
-
 import matplotlib.pyplot as plt
+import numpy as np
+from typing import List
+
+from gaussian_utils.gaussian import GaussianProcessOptimizer
 
 
-def plot_approximation(gpr, X, X_sample, Y_sample, X_next=None, show_legend=False):
-    """_summary_
+def plot_approximation(gpr: GaussianProcessOptimizer, X: np.ndarray, X_sample: List[float],
+                       Y_sample: List[float], X_next: float, show_legend: bool = False):
+    """Plots the observations, posterior mean and uncertainty estimate
 
     Args:
-        gpr (_type_): _description_
-        X (_type_): _description_
-        X_sample (_type_): _description_
-        Y_sample (_type_): _description_
-        X_next (_type_, optional): _description_. Defaults to None.
-        show_legend (bool, optional): _description_. Defaults to False.
+        gpr (GaussianProcessOptimizer): GaussianProcessOptimizer
+        X (np.ndarray): X values for posterior mean
+        X_sample (List[float]): Sampled X
+        Y_sample (List[float]): Sampled Y
+        X_next (float): Next sampling location
+        show_legend (bool, optional): Plot legend. Defaults to False.
     """
-    # surrogate resolution
+    # surrogate function
     mu, std = gpr.predict(X, return_std=True)
+    # uncertainty estimate
     plt.fill_between(X.ravel(),
                      mu.ravel() + 1.645 * std,
                      mu.ravel() - 1.645 * std,
                      alpha=0.4)
     plt.plot(X, mu, 'b-', lw=1, label='Surrogate function')
-    plt.plot(X_sample, Y_sample, 'kx', mew=3, label='Noisy samples')
-    if X_next:
-        plt.axvline(x=X_next, ls='--', c='k', lw=1)
+    plt.plot(X_sample, Y_sample, 'kx', mew=3, label='Sampled X')
+    plt.axvline(x=X_next, ls='--', c='k', lw=1)
     if show_legend:
         plt.legend()
 
 
-def plot_acquisition(X, Y, X_next, show_legend=False):
+def plot_acquisition(X: np.ndarray, Y: np.ndarray, X_next: float, show_legend: bool = False):
+    """Plots the acquisition function and the proposed next location
+
+    Args:
+        X (np.ndarray): X values for acquisition function
+        Y (np.ndarray): Y values for acquisition function
+        X_next (float): Proposed next sampling location
+        show_legend (bool, optional): Plot legend. Defaults to False.
+    """
     plt.plot(X, Y, 'r-', lw=1, label='Acquisition function')
     plt.axvline(x=X_next, ls='--', c='k', lw=1, label='Next sampling location')
     if show_legend:
