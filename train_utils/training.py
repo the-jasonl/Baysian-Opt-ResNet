@@ -159,7 +159,7 @@ def optimize_lr(
     """
     lb = 0.001  # lower bound for param to be optimized
     ub = 0.9    # upper bound for param to be optimized
-    max_evals = 6  # num of params to try
+    max_evals = 10  # num of params to try
     n_restarts = 10  # restarts of gpo
     gpo = GaussianProcessOptimizer(lb, ub, n_restarts)
 

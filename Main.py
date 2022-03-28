@@ -30,9 +30,9 @@ def main():
     # Load ResNet to optimize
     model = ResNet().to(device)
     # We are only optimizing learning rate, so we fix other hyperparameters
-    epochs = 2
+    epochs = 5
     batch_size = 64
-    n_splits = 3
+    n_splits = 5
     optimize_lr(training_data, test_data, model,
                 epochs, batch_size, n_splits, device)
 

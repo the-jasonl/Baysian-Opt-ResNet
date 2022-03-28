@@ -62,4 +62,13 @@ batch_size = 64
 n_splits = 5
 ```
 
+## Sample output
+
+```bash
+Optimal learning rate 0.1328678827243221
+```
+
+<img alt="optimization_plots" src="https://github.com/the-jasonl/Baysian-Opt-ResNet/blob/main/optimization_plots.png?raw=true"><br>
+
+
 In case of questions, feel free to open an issue!
