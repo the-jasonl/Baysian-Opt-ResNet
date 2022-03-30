@@ -3,7 +3,7 @@ from typing import List
 from scipy.stats import norm
 from scipy.optimize import minimize
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RationalQuadratic, WhiteKernel
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 
 
 class GaussianProcessOptimizer():
@@ -20,11 +20,11 @@ class GaussianProcessOptimizer():
         self.lb = lb
         self.ub = ub
         self.bounds = np.array([[lb, ub]])
-        self.noise = 0.1
+        self.noise = 0.1**2
         self.n_restarts = n_restarts
         # Gaussian process to use for estimating the function
         self.gp = GaussianProcessRegressor(
-            kernel=RationalQuadratic() + WhiteKernel(),
+            kernel=Matern(nu=2.5) + WhiteKernel(),
             alpha=self.noise,
             normalize_y=True,
             n_restarts_optimizer=n_restarts
@@ -66,16 +66,18 @@ class GaussianProcessOptimizer():
             X_sample (List[float]): sampled x values
             gpr (GaussianProcessRegressor): GaussianProcessRegressor
         """
-        mu, sigma = gpr.predict(X, return_std=True)
+        mu, std = gpr.predict(X, return_std=True)
         mu_sample = gpr.predict(np.array(X_sample).reshape(-1, 1))
+        # we dont use the sampled optimum because we are using a noisy model
+        # and the sampled optimum may be an unreliabel sample
         mu_sample_opt = np.min(mu_sample)
         mu = mu.reshape(-1, 1)
-        sigma = sigma.reshape(-1, 1)
+        std = std.reshape(-1, 1)
         imp = mu - mu_sample_opt
         flip = -1  # for minimization
-        Z = flip * imp / sigma
-        ei = flip * imp * norm.cdf(Z) + sigma * norm.pdf(Z)
-        ei[sigma == 0.0] = 0.0
+        Z = flip * imp / std
+        ei = flip * imp * norm.cdf(Z) + std * norm.pdf(Z)
+        ei[std == 0.0] = 0.0
 
         return ei
 

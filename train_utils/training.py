@@ -51,13 +51,14 @@ def train(dataloader: DataLoader, model: torch.nn.Module, loss_fn: nn.CrossEntro
 
 
 def test(dataloader: DataLoader, model: torch.nn.Module,
-         loss_fn: nn.CrossEntropyLoss, device: str) -> Tuple[float, float]:
+         loss_fn: nn.CrossEntropyLoss, setname: str, device: str) -> Tuple[float, float]:
     """Return performance of model on a test set
 
     Args:
         dataloader (DataLoader): Torch Dataloader for test data
         model (torch.nn.Module): Model to be evaluated
         loss_fn (nn.CrossEntropyLoss): loss function
+        setname (str): dataset name
         device (str): "cpu" or "cuda"
 
     Returns:
@@ -80,7 +81,7 @@ def test(dataloader: DataLoader, model: torch.nn.Module,
     test_loss /= num_batches
     correct /= size
     print(
-        f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+        f"{setname} Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
     return correct, test_loss
 
 
@@ -109,7 +110,7 @@ def kfold_train(training_data: torch.Tensor, test_data: torch.Tensor,
     # Create data loaders for test data
     test_dataloader = DataLoader(test_data, batch_size=batch_size)
     accuracy_scores = []
-    test_losses = []
+    cv_losses = []
 
     for fold, (train_idx, test_idx) in enumerate(kfold.split(training_data)):
         print('---fold no---{}---'.format(fold+1))
@@ -128,15 +129,18 @@ def kfold_train(training_data: torch.Tensor, test_data: torch.Tensor,
         for t in range(epochs):
             print(f"---Epoch {t+1}---\n")
             train(train_dataloader, model_copy, loss_fn, optimizer, device)
-            test(cv_dataloader, model_copy, loss_fn, device)
-        # Fold test performance
+
+        # Fold cross-val performance
         accuracy, test_loss = test(
-            test_dataloader, model_copy, loss_fn, device)
+            cv_dataloader, model_copy, loss_fn, "Cross-validation", device)
         accuracy_scores.append(accuracy)
-        test_losses.append(test_loss)
+        cv_losses.append(test_loss)
+
+        # Display test scores for informational purposes
+        test(test_dataloader, model_copy, loss_fn, "Test", device)
     # Average metrics across folds
     avg_accuracy = sum(accuracy_scores)/len(accuracy_scores)
-    avg_loss = sum(test_losses)/len(test_losses)
+    avg_loss = sum(cv_losses)/len(cv_losses)
 
     return avg_accuracy, avg_loss
 
