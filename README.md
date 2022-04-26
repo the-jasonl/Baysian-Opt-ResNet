@@ -20,9 +20,12 @@ python3 Main.py
 
 The script prints the result out to console and saves a plot of the optimization proceess.
 
+## Short Intro to Baysian Optimization
+Baysian Optimization (BO) is an approach to optimize model hyperparameters. BO uses prior samples to build a function (surrogate function) that approximates how a hyperparameter affects the model performance. It then selects the most promising hyperparameter value based on an acquisition function. This process can be done iteratively, by evaluating the next sample, updating the prior and the choosing the next best parameter. BO is useful when the target function to approximate is expensive, as it provides an optimized sampling strategy.
+
 ## Model and training details
 
-This process serves as a showcase, so the ResNet has been kept very small to streamline the training time. Similarly, other hyperparameters have been kept small with regards to training time.
+I will use the readily available Fashion-MNIST dataset for this show case and a small ResNet. The ResNet has been kept very small to streamline the training time. Similarly, hyperparameters other than training time have been optimized with regards to training time.
 
 The showcased ResNet consists of 2 ResBlocks:
 
@@ -54,21 +57,33 @@ ResNet(
 )
 ```
 
+The model training process uses a k-fold cross-validation. The averaged validation score across the folds after the training process is used for the next BO step.
 
-Since we are only optimizing learning rate, other hyperparameters are fixed at:
+Since we are only optimizing learning rate, other training hyperparameters are fixed at:
 ```python
 epochs = 5
 batch_size = 64
 n_splits = 5
 ```
 
+## Optimization process
+
+A Gaussian Process (GP) is used for the BO process to get a function distribution rather than a single function estimate. Moreover, a function distribution incorporates uncertainty, which is helpful for the GP to sample the next point (allowing it to consider exploration and exploitation) (see iteration 2, where the surrogate function is linear with only 1 prior sample and does not provide a clear indication for the next sample. The expected improvement is highest furthest away from the already explored point)
+
+`sklearn` provides a `GaussianProcessRegressor` and implementation of several Kernels for the Gaussian Process. For this process, I use the widely used `Matern` Kernel with a noise level that has been set to reflect the average deviation from the mean in the k-fold scores during a sample run.
+
+To get the next sampling location, I use expected improvement as the acquisition function.
+
+
 ## Sample output
 
-```bash
-Optimal learning rate 0.1328678827243221
-```
+Each iteration of the optimization is plotted starting from iteration 2 onwards (after 1 point has been generated). The surrogate function with `1.645` uncertainty is plotted on the left side and the acquisition function on the right side.
 
 <img alt="optimization_plots" src="https://github.com/the-jasonl/Baysian-Opt-ResNet/blob/main/optimization_plots.png?raw=true"><br>
 
+The optimal learning rate is printed to the shell:
+```bash
+Optimal learning rate 0.1328678827243221
+```
 
 In case of questions, feel free to open an issue!
